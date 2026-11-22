@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: azzurro-reviews-db
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-reviews}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reviews}
+      POSTGRES_DB: ${POSTGRES_DB:-reviews}
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reviews}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  pgdata:

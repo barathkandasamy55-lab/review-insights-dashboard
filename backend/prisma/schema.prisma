@@ -1,0 +1,99 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Polarity {
+  POSITIVE
+  NEGATIVE
+}
+
+enum ScrapeStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+model Property {
+  id             Int      @id @default(autoincrement())
+  slug           String   @unique
+  name           String
+  url            String
+  bookingHotelId Int?
+  overallScore   Float?
+  reviewCount    Int?
+  lastScrapedAt  DateTime?
+  createdAt      DateTime @default(now())
+
+  reviews    Review[]
+  scrapeRuns ScrapeRun[]
+}
+
+model Review {
+  id             Int      @id @default(autoincrement())
+  propertyId     Int
+  // Booking.com's stable per-review hash (reviewUrl). Natural de-duplication key.
+  externalId     String
+  score          Float
+  title          String?
+  positiveText   String?
+  negativeText   String?
+  language       String?
+  reviewedAt     DateTime
+  checkIn        DateTime?
+  checkOut       DateTime?
+  nights         Int?
+  roomType       String?
+  travellerType  String?
+  reviewerName   String?
+  reviewerCountry String?
+  helpfulVotes   Int      @default(0)
+  ownerReply     String?
+  // True when the liked/disliked box has real content (not "Nothing", "N/A"...). Denominators for insights.
+  hasComplaint   Boolean  @default(false)
+  hasPraise      Boolean  @default(false)
+  scrapedAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  property Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  topics   ReviewTopic[]
+
+  @@unique([propertyId, externalId])
+  @@index([propertyId, reviewedAt])
+  @@index([reviewedAt])
+}
+
+model ReviewTopic {
+  id       Int      @id @default(autoincrement())
+  reviewId Int
+  topic    String
+  polarity Polarity
+
+  review Review @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, topic, polarity])
+  @@index([topic, polarity])
+}
+
+model ScrapeRun {
+  id         Int          @id @default(autoincrement())
+  propertyId Int?
+  status     ScrapeStatus @default(RUNNING)
+  mode       String       // "full" | "incremental"
+  startedAt  DateTime     @default(now())
+  finishedAt DateTime?
+  fetched    Int          @default(0)
+  inserted   Int          @default(0)
+  updated    Int          @default(0)
+  attempts   Int          @default(0)
+  error      String?
+
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  @@index([startedAt])
+}
